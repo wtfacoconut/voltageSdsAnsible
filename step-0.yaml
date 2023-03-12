@@ -1,0 +1,32 @@
+# This playbook will, for the most part, install important prerequisites
+---
+- hosts: localhost
+  tasks:
+
+    - name: Checking total system RAM
+      ansible.builtin.debug:
+        msg: "WARNING: System does not have enough memory. You only have {{ ansible_memory_mb.real.total }} MB. The recommended minimum is 40960 MB (40 GB)"
+      when: ansible_memory_mb.real.total < 40960
+
+    - name: Checking system CPU core count
+      ansible.builtin.debug:
+        msg: "WARNING: System may not have enough CPU cores. You only have {{ ansible_processor_cores }}. The recommended minimum is 4 cores."
+      when: ansible_processor_cores < 10
+
+    # df -h | tr -s ' ' | grep -P "/$" | cut -d ' ' -f4 | grep -oP "\d+"
+    - name: Getting root filesystem free disk space
+      shell: df -h | tr -s ' ' | grep -P "/$" | cut -d ' ' -f4 | grep -oP "\d+"
+      register: root_disk_space
+      delegate_to: localhost
+
+    - name: Checking available free space on root of filesystem
+      ansible.builtin.debug:
+        msg: "WARNING: System may not have free disk space. The system current only has {{ root_disk_space.stdout }} GB. The recommended minimum is 70 GB."
+      when: root_disk_space.stdout | int < 70
+
+# TODO:
+#   - Add check for supported Operating Systems (Ubuntu Server 22.04 LTS & RHEL/CentOS/Rocky 8)
+#     - Mention that only Ubuntu Server has been tested if the OS is not Ubunti Server
+#   - Add check for internet connection
+#   - Add check for 64-bit OS
+#   - Add check for bash

@@ -1,0 +1,104 @@
+# This playbook will, for the most part, install important prerequisites
+---
+- hosts: localhost
+  tasks:
+
+    # Installing k3d
+    - name: Check if k3d is installed
+      shell: 
+        cmd: k3d --version
+      register: k3d_result
+      ignore_errors: true
+
+    - name: Install k3d
+      become: true
+      become_user: root
+      shell:
+        warn: false
+        cmd: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash 
+      when: k3d_result is failed
+
+    # Add apt repo and GPG key for kubectl apt repo
+    - name: "Add apt repo for kubectl"
+      lineinfile:
+        path: /etc/apt/sources.list.d/kubernetes.list
+        line: "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main"
+        state: present
+        create: true
+      become: true
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+    - name: Check for GPG key for kubernetes/kubectl apt repo
+      stat:
+        path: /etc/apt/keyrings/kubernetes-archive-keyring.gpg
+      register: kubectl_gpg_check
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+    - name: Retrieve GPG key for kubernetes/kubectl apt repo
+      become: true
+      become_user: root
+      shell:
+        warn: false
+        cmd: curl -fsSLo /etc/apt/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      when: (not kubectl_gpg_check.stat.exists) and (ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian')
+
+    # Add apt repo and GPG key for helm apt repo
+    - name: "Add apt repo for helm"
+      lineinfile:
+        path: /etc/apt/sources.list.d/helm-stable-debian.list
+        line: "deb [arch=amd64 signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main"
+        state: present
+        create: true
+      become: true
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+    - name: Check for GPG key for helm apt repo
+      stat:
+        path: /usr/share/keyrings/helm.gpg
+      register: helm_gpg_check
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+
+    - name: Retrieve GPG key for Helm's apt repo
+      become: true
+      become_user: root
+      shell:
+        warn: false
+        cmd: curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null 
+      when: (not helm_gpg_check.stat.exists) and (ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian') 
+
+    # Installing: kubectl, helm, curl, ca-certificates, apt-transport-https 
+    - name: Install kubectl, helm, ca-certificates, curl, and apt-transport-https
+      become: true
+      become_user: root
+      apt:
+        pkg:
+          - kubectl
+          - helm=3.9.3-1
+          - ca-certificates
+          - curl
+          - apt-transport-https
+        update_cache: yes
+        state: present
+      when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
+    
+    # Using k3d to create a k8s cluster (1 worker, 1 controller), with an image registry, & without traefik
+    - name: Check if k3d already has a default cluster
+      shell:
+        cmd: k3d cluster list | grep k3s-default
+      register: k3d_cluster_check    
+
+    - name: Use k3d to create cluster
+      shell:
+        cmd: k3d cluster create --agents 1 --servers 1 -p "80:80@loadbalancer" -p "443:443@loadbalancer" --registry-create myregistry:0.0.0.0:5000 --image "rancher/k3s:v1.22.17-k3s1" --k3s-arg "--tls-san=127.0.0.1@server:0" --k3s-arg "--no-deploy=traefik@server:0"
+      when: k3d_cluster_check is failed
+
+    # Updating the /etc/hosts file
+    # Verify that the newly created kubernetes cluster is running & reachable
+    - name: Check that the cluster created by k3d is working
+      shell:
+        cmd: kubectl cluster-info
+      register: kubectl_result
+      until: "kubectl_result is not failed"
+      retries: 10
+      delay: 10
+
