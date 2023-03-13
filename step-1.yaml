@@ -12,18 +12,24 @@
         state: absent
       when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
 
-    - name: Checking if yq is installed
-      shell: 
-        cmd: yq --version
+    - name: Checking if yq is installed   # noqa no-changed-when
+      ansible.builtin.command: yq --version
       register: yq_result
       ignore_errors: true
-    
+
     - name: Install yq
       become: true
       become_user: root
-      shell:
+      ansible.builtin.shell:
         warn: false
-        cmd: curl -L $(curl -Ls -o /dev/null -w %{url_effective} https://github.com/mikefarah/yq/releases/latest | awk -F"/" 'BEGIN { OFS = "/"; ORS = "/" }{for(i=1;i<=NF-2;i++) print $i;} {print "download", $NF, "yq_linux_amd64.tar.gz"}' | awk '{ print substr( $0, 1, length($0)-1 ) }') --output yq_linux_amd64.tar.gz && tar -zxvf yq_linux_amd64.tar.gz && sudo mv -f yq_linux_amd64 /usr/bin/yq && rm ./yq* install-man-page.sh && yq --version
+        cmd: >
+          curl -L $(curl -Ls -o /dev/null -w %{url_effective} https://github.c
+          om/mikefarah/yq/releases/latest | awk -F"/" 'BEGIN { OFS = "/"; ORS
+           = "/" }{for(i=1;i<=NF-2;i++) print $i;} {print "download", $NF, "yq
+          _linux_amd64.tar.gz"}' | awk '{ print substr( $0, 1, length($0)-1 ) }
+          ') --output yq_linux_amd64.tar.gz && tar -zxvf yq_linux_amd64.tar.gz
+           && sudo mv -f yq_linux_amd64 /usr/bin/yq && rm ./yq* install-man-pa
+           ge.sh && yq --version
       when: yq_result is failed
 
     # Adding command aliases
@@ -32,7 +38,7 @@
       become_user: root
       apt:
         name: python3-pip
-        update_cache: yes
+        update_cache: true
         state: present
       when: ansible_distribution == 'Ubuntu' or ansible_distribution == 'Debian'
 
@@ -52,49 +58,50 @@
         line: "alias pip=pip3"
         state: present
 
-    # Adding in various environment variables Voltage release names and kubernetes namespaces.
-    - name: "Create env var in bashrc: Default kubernetes namespace for all Voltage related resources"
-      lineinfile: 
+    # Adding in various environment variables Voltage release names and
+    # kubernetes namespaces.
+    - name: "Create env var in bashrc: Default kubernetes namespace for\
+       all Voltage related resources"
+      ansible.builtin.lineinfile:
         path: ~/.bashrc
         line: "export NS_MY_SDS_LAB=sds-lab1;"
-        state: present 
+        state: present
     - name: "Create env var in bashrc: Default k8s namespace for SDS deployment"
-      lineinfile: 
+      ansible.builtin.lineinfile:
         path: ~/.bashrc
         line: "export NS_SDS_RELEASE=$NS_MY_SDS_LAB;"
-        state: present 
+        state: present
     - name: "Create env var in bashrc: Default k8s namespace for sd-local-deps"
-      lineinfile: 
+      ansible.builtin.lineinfile:
         path: ~/.bashrc
         line: "export NS_SD_LOCAL_DEPS=$NS_MY_SDS_LAB;"
-        state: present 
+        state: present
     - name: "Create env var in bashrc: Default release name for SDS deployment"
-      lineinfile: 
+      lineinfile:
         path: ~/.bashrc
         line: "export RN_SDS_RELEASE=sds-release;"
-        state: present 
+        state: present
     - name: "Create env var in bashrc: Default release name for sd-local-deps"
-      lineinfile: 
+      lineinfile:
         path: ~/.bashrc
         line: "export RN_SD_LOCAL_DEPS=sd-local-deps;"
         state: present
 
-    # Ensure that the docker group exists and that the current user is included in it
+    # Ensure the docker group exists & that the current user is included in it
     - name: Create docker group
       group:
         name: docker
         state: present
-      become: yes
+      become: true
 
-    - name: Getting the current user
-      shell:
-        cmd: whoami
+    - name: Getting the current user   # noqa no-changed-when
+      ansible.builtin.command: whoami
       register: user_result
       ignore_errors: false
 
     - name: Adding user "{{ user_result.stdout }}" to the docker user group
       user:
         name: "{{ user_result.stdout }}"
-        groups: docker 
-        append: yes
-      become: yes
+        groups: docker
+        append: true
+      become: true
