@@ -3,15 +3,17 @@
   tasks:
     - name: Checking total system RAM
       ansible.builtin.debug:
-        msg: "WARNING: System does not have enough memory. You only have \
-        {{ ansible_memory_mb.real.total }} MB. The recommended minimum is\
-         40960 MB (40 GB)"
+        msg: >
+          "WARNING: System does not have enough memory. You only have
+           {{ ansible_memory_mb.real.total }} MB. The recommended minimum is
+           40960 MB (40 GB)"
       when: ansible_memory_mb.real.total < 40960
 
     - name: Checking system CPU core count
       ansible.builtin.debug:
-        msg: "WARNING: System may not have enough CPU cores. You only have \
-        {{ ansible_processor_cores }}. The recommended minimum is 4 cores."
+        msg: >
+          "WARNING: System may not have enough CPU cores. You only have
+           {{ ansible_processor_cores }}. The recommended minimum is 4 cores."
       when: ansible_processor_cores < 10
 
     - name: Getting root filesystem free disk space   # noqa no-changed-when risky-shell-pipe
@@ -22,9 +24,10 @@
 
     - name: Checking available free space on root of filesystem
       ansible.builtin.debug:
-        msg: "WARNING: System may not have free disk space. The system \
-        current only has {{ root_disk_space.stdout }} GB. The recommended \
-        minimum is 70 GB."
+        msg: >
+          "WARNING: System may not have free disk space. The system
+            current only has {{ root_disk_space.stdout }} GB. The recommended
+            minimum is 70 GB."
       when: root_disk_space.stdout | int < 70
 
 # TODO:
