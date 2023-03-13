@@ -16,6 +16,7 @@
       ansible.builtin.command: yq --version
       register: yq_result
       ignore_errors: true
+      changed_when: yq_result.rc == 2
 
     - name: Install yq
       become: true
@@ -98,6 +99,7 @@
       ansible.builtin.command: whoami
       register: user_result
       ignore_errors: false
+      changed_when: user_result.rc == 2
 
     - name: Adding user "{{ user_result.stdout }}" to the docker user group
       user:

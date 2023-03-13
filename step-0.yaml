@@ -21,6 +21,7 @@
         df -h | tr -s ' ' | grep -P "/$" | cut -d ' ' -f4 | grep -oP "\d+"
       register: root_disk_space
       delegate_to: localhost
+      changed_when: root_disk_space.rc == 2
 
     - name: Checking available free space on root of filesystem
       ansible.builtin.debug:

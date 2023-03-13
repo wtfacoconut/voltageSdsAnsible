@@ -8,14 +8,13 @@
       ansible.builtin.command: k3d --version
       register: k3d_result
       ignore_errors: true
+      changed_when: k3d_result.rc == 2
 
     - name: Install k3d
       become: true
       become_user: root
       shell:
-        cmd: >
-          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh
-           | bash
+        cmd: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
         warn: false
       when: k3d_result is failed
 
@@ -23,9 +22,7 @@
     - name: "Add apt repo for kubectl"   # noqa risky-file-permissions
       lineinfile:
         path: /etc/apt/sources.list.d/kubernetes.list
-        line: >
-          "deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] ht
-          tps://apt.kubernetes.io/ kubernetes-xenial main"
+        line: deb [signed-by=/etc/apt/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main
         state: present
         create: true
       become: true
@@ -41,9 +38,7 @@
       become: true
       become_user: root
       command:
-        cmd: >
-          curl -fsSLo /etc/apt/keyrings/kubernetes-archive-keyring.gpg https:/
-          /packages.cloud.google.com/apt/doc/apt-key.gpg
+        cmd: curl -fsSLo /etc/apt/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
         warn: false
       when: >
         (not kubectl_gpg_check.stat.exists) and
@@ -53,9 +48,7 @@
     - name: "Add apt repo for helm"   # noqa risky-file-permissions
       lineinfile:
         path: /etc/apt/sources.list.d/helm-stable-debian.list
-        line: .
-          "deb [arch=amd64 signed-by=/usr/share/keyrings/helm.gpg] https://balt
-          ocdn.com/helm/stable/debian/ all main"
+        line: deb [arch=amd64 signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main
         state: present
         create: true
       become: true
@@ -71,9 +64,7 @@
       become: true
       become_user: root
       shell:
-        cmd: >
-          curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee
-           /usr/share/keyrings/helm.gpg > /dev/null
+        cmd: curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
         warn: false
       when: >
         (not helm_gpg_check.stat.exists) and
@@ -100,14 +91,22 @@
       shell:
         cmd: k3d cluster list | grep k3s-default
       register: k3d_cluster_check
+      changed_when: k3d_cluster_check.rc == 2
+
+    - name: Inform user of existing cluster
+      ansible.builtin.debug:
+        msg: "INFO: There is already an existing default cluster made with k3d!"
+      when: k3d_cluster_check is successful
+
+    - name: Inform user that a new cluster will be created
+      ansible.builtin.debug:
+        msg: "INFO: No existing default cluster detected. A new k8s cluster will be created with k3d!"
+      when: k3d_cluster_check is failed
+      changed_when: k3d_cluster_check is failed
 
     - name: Use k3d to create cluster
       command:
-        cmd: >
-          k3d cluster create --agents 1 --servers 1 -p "80:80@loadbalancer" -p
-           "443:443@loadbalancer" --registry-create myregistry:0.0.0.0:5000 --
-          image "rancher/k3s:v1.22.17-k3s1" --k3s-arg "--tls-san=127.0.0.1@se
-          rver:0" --k3s-arg "--no-deploy=traefik@server:0"
+        cmd: k3d cluster create --agents 1 --servers 1 -p "80:80@loadbalancer" -p "443:443@loadbalancer" --registry-create myregistry:0.0.0.0:5000 --image "rancher/k3s:v1.22.17-k3s1" --k3s-arg "--tls-san=127.0.0.1@server:0" --k3s-arg "--no-deploy=traefik@server:0" # noqa yaml
       when: k3d_cluster_check is failed
 
     # Updating the /etc/hosts file
@@ -119,3 +118,4 @@
       until: "kubectl_result is not failed"
       retries: 10
       delay: 10
+      changed_when: kubectl_result.rc == 2
