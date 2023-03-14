@@ -16,14 +16,13 @@
       ansible.builtin.command: yq --version
       register: yq_result
       ignore_errors: true
-      changed_when: yq_result.rc == 2
+      changed_when: false
 
-    - name: Install yq
+    - name: Install yq   # noqa command-instead-of-module
       become: true
       become_user: root
-      ansible.builtin.shell:
-        cmd: curl -L $(curl -Ls -o /dev/null -w %{url_effective} https://github.com/mikefarah/yq/releases/latest | awk -F"/" 'BEGIN { OFS = "/"; ORS = "/" }{for(i=1;i<=NF-2;i++) print $i;} {print "download", $NF, "yq_linux_amd64.tar.gz"}' | awk '{ print substr( $0, 1, length($0)-1 ) }') --output yq_linux_amd64.tar.gz && tar -zxvf yq_linux_amd64.tar.gz && sudo mv -f yq_linux_amd64 /usr/bin/yq && rm ./yq* install-man-pa && yq --version
-        warn: false
+      shell:
+        cmd: curl -L $(curl -Ls -o /dev/null -w %{url_effective} https://github.com/mikefarah/yq/releases/latest | awk -F"/" 'BEGIN { OFS = "/"; ORS = "/" }{for(i=1;i<=NF-2;i++) print $i;} {print "download", $NF, "yq_linux_amd64.tar.gz"}' | awk '{ print substr( $0, 1, length($0)-1 ) }') --output yq_linux_amd64.tar.gz && tar -zxvf yq_linux_amd64.tar.gz && sudo mv -f yq_linux_amd64 /usr/bin/yq && rm ./yq* install-man-page.sh && yq --version   # noqa yaml
       when: yq_result is failed
 
     # Adding command aliases
