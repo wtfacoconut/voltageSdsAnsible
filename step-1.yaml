@@ -22,15 +22,8 @@
       become: true
       become_user: root
       ansible.builtin.shell:
+        cmd: curl -L $(curl -Ls -o /dev/null -w %{url_effective} https://github.com/mikefarah/yq/releases/latest | awk -F"/" 'BEGIN { OFS = "/"; ORS = "/" }{for(i=1;i<=NF-2;i++) print $i;} {print "download", $NF, "yq_linux_amd64.tar.gz"}' | awk '{ print substr( $0, 1, length($0)-1 ) }') --output yq_linux_amd64.tar.gz && tar -zxvf yq_linux_amd64.tar.gz && sudo mv -f yq_linux_amd64 /usr/bin/yq && rm ./yq* install-man-pa && yq --version
         warn: false
-        cmd: >
-          curl -L $(curl -Ls -o /dev/null -w %{url_effective} https://github.c
-          om/mikefarah/yq/releases/latest | awk -F"/" 'BEGIN { OFS = "/"; ORS
-           = "/" }{for(i=1;i<=NF-2;i++) print $i;} {print "download", $NF, "yq
-          _linux_amd64.tar.gz"}' | awk '{ print substr( $0, 1, length($0)-1 ) }
-          ') --output yq_linux_amd64.tar.gz && tar -zxvf yq_linux_amd64.tar.gz
-           && sudo mv -f yq_linux_amd64 /usr/bin/yq && rm ./yq* install-man-pa
-           ge.sh && yq --version
       when: yq_result is failed
 
     # Adding command aliases
